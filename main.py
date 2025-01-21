@@ -113,14 +113,10 @@ def show_history(last_n=None):
                 lines = entry.strip().split("\n")
                 for line in lines:
                     if line.startswith("[") and "QUERY:" in line:
-                        timestamp = line.split("QUERY:")[0].strip()
                         query = line.split("QUERY:")[1].strip()
-                        colored_print(timestamp, "yellow")
                         colored_print(f"QUERY: {query}", "cyan")
                     elif line.startswith("[") and "RESPONSE:" in line:
-                        timestamp = line.split("RESPONSE:")[0].strip()
                         response = line.split("RESPONSE:")[1].strip()
-                        colored_print(timestamp, "yellow")
                         colored_print(f"RESPONSE: {response}", "green")
     else:
         colored_print("No history found.", "yellow")
