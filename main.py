@@ -227,7 +227,7 @@ class InteractiveMode:
         elif user_prompt.startswith("up "):
             self.handle_file_upload(user_prompt)
             return True
-        elif user_prompt == "help":
+        elif user_prompt in ["help", "?"]:
             show_help()
             return True
         elif user_prompt == "list":
