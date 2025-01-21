@@ -42,6 +42,7 @@ def read_token(file_path="~/.openai_gpt_token"):
     else:
         raise FileNotFoundError("Token file not found and 'OPENAI_API_KEY' environment variable is not set.")
 
+# Initialize the OpenAI client globally
 try:
     api_key = read_token()
     client = OpenAI(api_key=api_key)
@@ -101,13 +102,40 @@ def log_to_history(prompt, response):
         history.write(f"[{timestamp}] QUERY: {prompt}\n")
         history.write(f"[{timestamp}] RESPONSE: {response}\n\n")
 
-def show_history():
-    """Displays query-response history from the log file."""
+def show_history(last_n=None):
+    """Displays query-response history from the log file with colored timestamps, queries, and responses."""
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r") as history:
-            colored_print(history.read(), "cyan")
+            entries = history.read().strip().split("\n\n")
+            if last_n:
+                entries = entries[-last_n:]
+            for entry in entries:
+                lines = entry.strip().split("\n")
+                for line in lines:
+                    if line.startswith("[") and "QUERY:" in line:
+                        timestamp = line.split("QUERY:")[0].strip()
+                        query = line.split("QUERY:")[1].strip()
+                        colored_print(timestamp, "yellow")
+                        colored_print(f"QUERY: {query}", "cyan")
+                    elif line.startswith("[") and "RESPONSE:" in line:
+                        timestamp = line.split("RESPONSE:")[0].strip()
+                        response = line.split("RESPONSE:")[1].strip()
+                        colored_print(timestamp, "yellow")
+                        colored_print(f"RESPONSE: {response}", "green")
     else:
         colored_print("No history found.", "yellow")
+
+def get_nth_history_line(n):
+    """Retrieve the Nth query from the history file."""
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r") as history:
+            queries = [line.split("QUERY: ", 1)[-1].strip()
+                       for line in history if "QUERY: " in line]
+            if 1 <= n <= len(queries):
+                return queries[n - 1]
+            else:
+                return None
+    return None
 
 def process_single_query(query):
     """Process a single query and exit."""
@@ -124,76 +152,87 @@ def process_single_query(query):
     finally:
         spinner.stop()
 
-def interactive_mode():
-    """Run in interactive mode with prompt."""
-    load_history()
-    spinner = Spinner()
-    
-    style = Style.from_dict({
-        'prompt': '#0000ff',
-    })
+class InteractiveMode:
+    def __init__(self):
+        self.spinner = Spinner()
+        self.style = Style.from_dict({
+            'prompt': '#0000ff',
+        })
+        self.bindings = KeyBindings()
 
-    try:
-        bindings = KeyBindings()
-        bindings.add("h")(lambda event: show_history())
+    def handle_exit(self):
+        colored_print("Goodbye!", "cyan")
 
-        while True:
+    def handle_history(self, user_prompt):
+        if user_prompt.strip() == "h":
+            show_history()
+        elif user_prompt.startswith("h -"):
             try:
+                n = int(user_prompt.split("-", 1)[1])
+                if n > 0:
+                    show_history(last_n=n)
+                else:
+                    colored_print("Invalid number of queries to show.", "red")
+            except ValueError:
+                colored_print("Invalid command format. Use 'h' or 'h -N'.", "red")
+
+    def handle_nth_query(self, user_prompt):
+        try:
+            n = int(user_prompt[1:])
+            nth_query = get_nth_history_line(n)
+            if nth_query:
+                colored_print(f"Editing Query {n}: {nth_query}", "yellow")
+                return prompt(
+                    f"{Colors.BLUE}[Edit Query] > {Colors.RESET}",
+                    default=nth_query,
+                    editing_mode=EditingMode.VI,
+                    style=self.style
+                )
+            else:
+                colored_print(f"No query at index {n}.", "red")
+                return None
+        except ValueError:
+            colored_print("Invalid command. Use !N where N is a number.", "red")
+            return None
+
+    def process_input(self, user_prompt):
+        if user_prompt.lower() == "exit":
+            self.handle_exit()
+            return False
+        elif user_prompt.startswith("h"):
+            self.handle_history(user_prompt)
+            return True
+        elif user_prompt.startswith("!"):
+            edited_prompt = self.handle_nth_query(user_prompt)
+            if edited_prompt:
+                user_prompt = edited_prompt
+            else:
+                return True
+
+        self.spinner.start()
+        reply = generate_response(user_prompt)
+        self.spinner.stop()
+
+        print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
+        log_to_history(user_prompt, reply)
+        return True
+
+    def run(self):
+        try:
+            while True:
                 user_prompt = prompt(
                     ANSI(Colors.BLUE + "> " + Colors.RESET),
-                    key_bindings=bindings,
                     editing_mode=EditingMode.VI,
-                    style=style
+                    style=self.style
                 )
-                
-                if user_prompt.lower() == "exit":
-                    colored_print("Goodbye!", "cyan")
+                if not self.process_input(user_prompt):
                     break
-                elif user_prompt.lower() == "h":
-                    show_history()
-                    continue
-
-                spinner.start()
-                reply = generate_response(user_prompt)
-                spinner.stop()
-
-                print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
-                log_to_history(user_prompt, reply)
-
-            except KeyboardInterrupt:
-                spinner.stop()
-                colored_print("\nSession terminated by user.", "cyan")
-                break
-            except Exception as e:
-                spinner.stop()
-                colored_print(f"Error: {e}", "red")
-
-    except ImportError:
-        colored_print("Falling back to standard input. Install prompt_toolkit for vi-like editing.", "red")
-        while True:
-            try:
-                user_prompt = input(f"{Colors.BLUE}> {Colors.RESET}")
-                if user_prompt.lower() == "exit":
-                    colored_print("Goodbye!", "cyan")
-                    break
-                elif user_prompt.lower() == "h":
-                    show_history()
-                    continue
-
-                spinner.start()
-                reply = generate_response(user_prompt)
-                spinner.stop()
-
-                print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
-                log_to_history(user_prompt, reply)
-
-            except KeyboardInterrupt:
-                spinner.stop()
-                colored_print("\nSession terminated by user.", "cyan")
-                break
-            except Exception as e:
-                spinner.stop()
-                colored_print(f"Error: {e}", "red")
+        except KeyboardInterrupt:
+            self.spinner.stop()
+            colored_print("\nSession terminated by user.", "cyan")
+        except Exception as e:
+            self.spinner.stop()
+            colored_print(f"Error: {e}", "red")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -201,4 +240,5 @@ if __name__ == "__main__":
         query = " ".join(sys.argv[1:])
         process_single_query(query)
     else:
-        interactive_mode()
+        interactive = InteractiveMode()
+        interactive.run()
