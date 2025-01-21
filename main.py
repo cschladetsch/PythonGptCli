@@ -181,6 +181,9 @@ class InteractiveMode:
         elif user_prompt.startswith("up "):
             self.handle_file_upload(user_prompt)
             return True
+        elif user_prompt == "h":
+            show_history()
+            return True
         elif user_prompt == "help":
             show_help()
             return True
