@@ -1,95 +1,28 @@
 # GPT Code Exchange
 
-A Python-based tool to interact with OpenAI's GPT-4 model via command-line or interactive mode.
+A Python-based tool for interacting with OpenAI's GPT-4 model. This project allows users to send queries and receive responses while maintaining a history of interactions.
 
 ## Features
-- Accepts user input via command-line arguments or an interactive prompt.
-- Uses OpenAI's GPT-4 model for generating responses.
-- Color-coded output for better readability.
-- Secure API key handling using environment variables.
+- Interactive querying interface with spinner for waiting periods.
+- Query and response history stored with UTC timestamps.
+- Scroll through history using arrow keys.
+- `vi`-like editing support (if `prompt_toolkit` is installed).
+- Supports history display (`h` command) and logs all interactions.
 
 ---
 
 ## Requirements
-- Python 3.6 or higher
-- OpenAI Python package (`openai`)
-- `termcolor` package for colored text
+- Python 3.12 or higher
+- Required Python packages:
+  - `openai`
+  - `termcolor`
+  - `prompt_toolkit`
 
 ---
 
 ## Installation
 
-1. Clone the repository:
+### Using a Virtual Environment (Recommended)
+1. Create a virtual environment:
    ```bash
-   $ git clone https://github.com/cschladetsch/PythonGptRepl.git
-   $ cd PythonGptRepl
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip3 install openai termcolor
-   ```
-
----
-
-## Configuration
-
-### Set up the OpenAI API key:
-- Add your OpenAI API key as an environment variable:
-  ```bash
-  export OPENAI_GPT_TOKEN="your_openai_api_key"
-  ```
-
-OR
-
-- Place the key in a file named `token` in the same directory as `main.py`.
-
-The program first searches for the value in the environment variables, *then* looks for a file called `~/.openai_gpt_token`.
-
----
-
-## Usage
-
-### Command-Line Mode
-Run the script with a prompt:
-```bash
-python3 main.py "What is the capital of Australia?"
-```
-
-### Interactive Mode
-Start the script without arguments:
-```bash
-python3 main.py
-```
-Then type your prompt and press Enter:
-```
-> What is the capital of Australia?
-< Canberra
-```
-
-### Exit Interactive Mode
-Type `exit` or press `Ctrl+C`.
-
----
-
-## Troubleshooting
-
-1. **Error: `OpenAI.__init__() takes 1 positional argument but 2 were given`**
-   - Ensure you are using the latest version of the `openai` package and have correctly set the API key.
-
-2. **Environment Variable Not Found**
-   - Verify that `GPT_TOKEN` is set. Check by running:
-     ```bash
-     echo $GPT_TOKEN
-     ```
-
-3. **Dependencies Missing**
-   - Install them using:
-     ```bash
-     pip3 install openai termcolor
-     ```
-
----
-
-## License
-This project is licensed under the MIT License.
+   python3 -m venv ~/venvs/gpt_env
