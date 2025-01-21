@@ -1,4 +1,4 @@
-# GPT Query Assistant
+# Python GPT REPL
 
 GPT Query Assistant is a versatile command-line tool that allows you to interact with OpenAI's GPT model in a highly functional and user-friendly way. Featuring color-coded output, a history log, and support for both single-command queries and REPL (Read-Eval-Print Loop) mode, this tool is perfect for quick interactions or extended conversations.
 
