@@ -42,17 +42,12 @@ def read_token(file_path="~/.openai_gpt_token"):
     else:
         raise FileNotFoundError("Token file not found and 'OPENAI_API_KEY' environment variable is not set.")
 
-api_key = read_token()
-client = OpenAI(api_key=api_key)
-
-def load_history():
-    """Loads history from the log file into readline."""
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r") as history:
-            for line in history:
-                if line.startswith("[") and "QUERY:" in line:
-                    query = line.split("QUERY:")[1].strip()
-                    readline.add_history(query)
+try:
+    api_key = read_token()
+    client = OpenAI(api_key=api_key)
+except Exception as e:
+    print(f"{Colors.RED}Error initializing OpenAI client: {str(e)}{Colors.RESET}")
+    sys.exit(1)
 
 def generate_response(prompt):
     """Generates a response using OpenAI's GPT-4 model."""
@@ -97,9 +92,7 @@ class Spinner:
         sys.stdout.flush()
 
 def log_to_history(prompt, response):
-    """
-    Logs the query and response to a history file with a UTC timestamp.
-    """
+    """Logs the query and response to a history file with a UTC timestamp."""
     log_dir = os.path.dirname(HISTORY_FILE)
     os.makedirs(log_dir, exist_ok=True)
 
@@ -116,12 +109,28 @@ def show_history():
     else:
         colored_print("No history found.", "yellow")
 
-def main():
+def process_single_query(query):
+    """Process a single query and exit."""
+    spinner = Spinner()
+    try:
+        spinner.start()
+        reply = generate_response(query)
+        spinner.stop()
+        print(reply)
+        log_to_history(query, reply)
+    except Exception as e:
+        spinner.stop()
+        print(f"{Colors.RED}Error: {str(e)}{Colors.RESET}")
+    finally:
+        spinner.stop()
+
+def interactive_mode():
+    """Run in interactive mode with prompt."""
     load_history()
     spinner = Spinner()
     
     style = Style.from_dict({
-        'prompt': '#0000ff',  # Blue color for prompt
+        'prompt': '#0000ff',
     })
 
     try:
@@ -161,7 +170,6 @@ def main():
 
     except ImportError:
         colored_print("Falling back to standard input. Install prompt_toolkit for vi-like editing.", "red")
-        
         while True:
             try:
                 user_prompt = input(f"{Colors.BLUE}> {Colors.RESET}")
@@ -188,4 +196,9 @@ def main():
                 colored_print(f"Error: {e}", "red")
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1:
+        # Join all arguments into a single query
+        query = " ".join(sys.argv[1:])
+        process_single_query(query)
+    else:
+        interactive_mode()
