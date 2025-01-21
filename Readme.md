@@ -1,97 +1,83 @@
-# Interactive GPT-4 Query Tool
+# GPT Command-Line Assistant
 
-This project is an interactive query tool that allows users to interact with GPT-4 through a command-line interface. It includes features such as a history log, customizable system prompts, and vi-like editing for commands.
+This script provides a command-line assistant that interacts with OpenAI's GPT-4 to handle various tasks such as managing a list of items, uploading files, and engaging in conversational queries.
 
 ---
 
 ## Features
 
-1. **Interactive Query Mode**
-   - Send queries to GPT-4 and get responses directly in the terminal.
-   - Supports vi-style editing for user input.
+### Core Commands
+- `help` or `?`: Displays a list of available commands.
+- `exit`: Exits the program.
+- `list`: Lists all items with their base-0 index.
+- `add <value>`: Adds a new item with an auto-incremented index.
+- `remove <index>`: Removes an item by its base-0 index.
+- `up <file_path>`: Uploads a file and sends its content to GPT for processing.
 
-2. **History Management**
-   - Automatically logs queries and responses with UTC timestamps to `~/query_history.log`.
-   - View the history using:
-     - `h`: Show all history.
-     - `h -N`: Show the last N queries and responses.
-
-3. **Customizable System Prompt**
-   - Modify the behavior of GPT-4 dynamically with the `set_system` command:
-     - Example: `set_system You are a friendly and concise assistant.`
-
-4. **Single Query Mode**
-   - Pass a single query as a command-line argument to get a quick response without entering interactive mode.
-
-5. **Enhanced Output Formatting**
-   - Timestamps, queries, and responses are displayed in distinct colors for better readability.
-     - **Timestamps**: Yellow
-     - **Queries**: Cyan
-     - **Responses**: Green
-
----
-
-## Usage
-
-### Installation
-1. Clone the repository.
-2. Ensure you have Python 3.7+ installed.
-3. Install the required libraries:
-   ```bash
-   pip install prompt_toolkit openai
-   ```
-
-4. Set your OpenAI API key:
-   - Place your API key in `~/.openai_gpt_token`, or set it as an environment variable:
-     ```bash
-     export OPENAI_API_KEY="your_api_key_here"
-     ```
-
-### Running the Tool
-
-#### Interactive Mode
-Run the script without arguments to enter the interactive mode:
-```bash
-python main.py
-```
-- Use `exit` to leave the session.
-- Commands:
-  - `h`: View all history.
-  - `h -N`: View the last N entries in history.
-  - `set_system <new system prompt>`: Update the system prompt dynamically.
-
-#### Single Query Mode
-Run the script with a query as an argument to get an immediate response:
-```bash
-python main.py "What is the capital of France?"
-```
+### Interactive Capabilities
+- Engage in a natural conversation with GPT-4.
+- Store and recall user data (e.g., user-defined lists).
+- Persistent storage using a JSON file at `~/.ask_items.json`.
 
 ---
 
 ## File Structure
 
-- `main.py`: Main script containing all functionality.
-- `~/query_history.log`: Automatically generated log file for query history.
+- **`main.py`**: The main program.
+- **`~/.ask_items.json`**: Persistent storage for user-defined lists.
+- **`~/query_history.log`**: Log file for all queries and responses.
 
 ---
 
-## Example
+## Requirements
 
-### Interactive Session
+- Python 3.8 or later
+- Installed packages:
+  - `openai`
+  - `prompt_toolkit`
+
+---
+
+## Installation
+
+1. Clone this repository or download the `main.py` file.
+2. Install dependencies:
+   ```bash
+   pip install openai prompt_toolkit
+   ```
+3. Ensure you have an OpenAI API key saved in `~/.openai_gpt_token` or set as an environment variable `OPENAI_API_KEY`.
+
+---
+
+## Usage
+
+### Running the Script
 ```bash
-$ python main.py
-> What is the weather today?
-< It depends on your location. Can you specify?
+python main.py
+```
 
-> h -1
-[2025-01-21 12:34:56 UTC] QUERY: What is the weather today?
-[2025-01-21 12:34:56 UTC] RESPONSE: It depends on your location. Can you specify?
+### Example Interaction
+```bash
+> help
+- help: Displays this help message.
+- quit: Exits the application.
+- list: Lists all available items.
+- add <value>: Adds a new item with an auto-incremented index.
+- remove <index>: Removes an item by its index.
+- up <file_path>: Uploads a file and processes it with GPT.
 
-> set_system You are a weather assistant.
-System prompt updated to: You are a weather assistant.
+> add Buy groceries
+Added: 0 -> Buy groceries
 
-> Tell me about today's forecast.
-< It looks like it will be sunny with a high of 25øC.
+> list
+Items:
+0: Buy groceries
+
+> remove 0
+Removed: 0 -> Buy groceries
+
+> up example.txt
+< Response from GPT about the uploaded file >
 
 > exit
 Goodbye!
@@ -99,15 +85,28 @@ Goodbye!
 
 ---
 
-## Customization
-- Modify the default system prompt in the `InteractiveMode` class:
-  ```python
-  self.system_prompt = "You are a helpful assistant."
-  ```
-- Adjust colors in the `Colors` class.
+## Troubleshooting
+
+### Common Issues
+1. **Missing API Key**:
+   - Ensure your API key is saved in `~/.openai_gpt_token` or exported as an environment variable:
+     ```bash
+     export OPENAI_API_KEY="your_api_key"
+     ```
+
+2. **Corrupted `~/.ask_items.json`**:
+   - If the persistent file is corrupted, delete it:
+     ```bash
+     rm ~/.ask_items.json
+     ```
+
+3. **Dependencies Not Installed**:
+   - Reinstall missing packages:
+     ```bash
+     pip install -r requirements.txt
+     ```
 
 ---
 
-## Notes
-- Ensure your OpenAI API key is valid and has sufficient usage quota.
-- The history log file (`~/query_history.log`) grows with usage; periodically archive or clean it if needed.
+## License
+This project is licensed under the MIT License. See the LICENSE file for details.
