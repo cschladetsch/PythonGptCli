@@ -71,6 +71,7 @@ def show_help():
     - list: Lists all available items.
     - add <value>: Adds a new item with an auto-incremented index.
     - remove <index>: Removes an item by its index.
+    - up <file_path>: Uploads a file and sends its content to GPT for processing.
     """
     print(help_text)
 
@@ -239,14 +240,15 @@ class InteractiveMode:
         elif user_prompt.startswith("remove "):
             self.handle_remove(user_prompt)
             return True
+        else:
+            # Handle conversational queries
+            self.spinner.start()
+            reply = generate_response(user_prompt, self.system_prompt)
+            self.spinner.stop()
 
-        self.spinner.start()
-        reply = generate_response(user_prompt, self.system_prompt)
-        self.spinner.stop()
-
-        print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
-        log_to_history(user_prompt, reply)
-        return True
+            print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
+            log_to_history(user_prompt, reply)
+            return True
 
     def run(self):
         try:
@@ -269,7 +271,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         # Join all arguments into a single query
         query = " ".join(sys.argv[1:])
-        upload_file_to_gpt(query)
+        reply = generate_response(query)
+        print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
     else:
         interactive = InteractiveMode()
         interactive.run()
