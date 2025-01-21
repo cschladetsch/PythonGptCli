@@ -11,7 +11,6 @@ import readline
 from prompt_toolkit import prompt
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.enums import EditingMode
-from prompt_toolkit.application import set_title
 
 # File path for history log
 HISTORY_FILE = os.path.expanduser("~/query_history.log")
@@ -91,7 +90,6 @@ if __name__ == "__main__":
     try:
         bindings = KeyBindings()
         bindings.add("h")(lambda event: show_history())
-        set_title("GPT Query Assistant")
 
         while True:
             try:
