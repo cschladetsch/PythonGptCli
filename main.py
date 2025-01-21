@@ -1,4 +1,3 @@
-# main.py
 import sys
 import os
 import threading
@@ -6,14 +5,29 @@ import itertools
 import time
 from datetime import datetime, timezone
 from openai import OpenAI
-from termcolor import colored
 import readline
 from prompt_toolkit import prompt
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.enums import EditingMode
+from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.styles import Style
 
 # File path for history log
 HISTORY_FILE = os.path.expanduser("~/query_history.log")
+
+# ANSI color codes
+class Colors:
+    BLUE = '\033[34m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    CYAN = '\033[36m'
+    RED = '\033[31m'
+    RESET = '\033[0m'
+
+def colored_print(text, color):
+    """Print colored text using ANSI escape sequences"""
+    color_code = getattr(Colors, color.upper(), Colors.RESET)
+    print(f"{color_code}{text}{Colors.RESET}")
 
 def read_token(file_path="~/.openai_gpt_token"):
     """
@@ -42,29 +56,49 @@ def load_history():
 
 def generate_response(prompt):
     """Generates a response using OpenAI's GPT-4 model."""
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error generating response: {str(e)}"
 
-def spinner():
-    """Displays a spinner while waiting for the API response."""
-    for char in itertools.cycle('|/-\\'):
-        if not spinner_active:
-            break
-        sys.stdout.write(colored(f"\r{char} Thinking...", "yellow"))
+class Spinner:
+    def __init__(self):
+        self.active = False
+        self.thread = None
+
+    def spin(self):
+        while self.active:
+            for char in '|/-\\':
+                if not self.active:
+                    break
+                sys.stdout.write(f'\r{Colors.YELLOW}{char} Thinking...{Colors.RESET}')
+                sys.stdout.flush()
+                time.sleep(0.1)
+        sys.stdout.write('\r' + ' ' * 20 + '\r')
         sys.stdout.flush()
-        time.sleep(0.1)
-    sys.stdout.write("\r")  # Clear spinner line
+
+    def start(self):
+        self.active = True
+        self.thread = threading.Thread(target=self.spin)
+        self.thread.start()
+
+    def stop(self):
+        self.active = False
+        if self.thread:
+            self.thread.join()
+        sys.stdout.write('\r' + ' ' * 20 + '\r')
+        sys.stdout.flush()
 
 def log_to_history(prompt, response):
     """
     Logs the query and response to a history file with a UTC timestamp.
-    Ensures the log directory and file exist.
     """
     log_dir = os.path.dirname(HISTORY_FILE)
     os.makedirs(log_dir, exist_ok=True)
@@ -78,15 +112,18 @@ def show_history():
     """Displays query-response history from the log file."""
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r") as history:
-            print(colored(history.read(), "cyan"))
+            colored_print(history.read(), "cyan")
     else:
-        print(colored("No history found.", "yellow"))
+        colored_print("No history found.", "yellow")
 
-if __name__ == "__main__":
-    # Load history into readline
+def main():
     load_history()
+    spinner = Spinner()
+    
+    style = Style.from_dict({
+        'prompt': '#0000ff',  # Blue color for prompt
+    })
 
-    # Set vi editing mode using prompt_toolkit
     try:
         bindings = KeyBindings()
         bindings.add("h")(lambda event: show_history())
@@ -94,63 +131,61 @@ if __name__ == "__main__":
         while True:
             try:
                 user_prompt = prompt(
-                    colored("> ", "blue"),
+                    ANSI(Colors.BLUE + "> " + Colors.RESET),
                     key_bindings=bindings,
                     editing_mode=EditingMode.VI,
+                    style=style
                 )
+                
                 if user_prompt.lower() == "exit":
-                    print(colored("Goodbye!", "cyan"))
+                    colored_print("Goodbye!", "cyan")
                     break
                 elif user_prompt.lower() == "h":
                     show_history()
                     continue
 
-                spinner_active = True
-                spinner_thread = threading.Thread(target=spinner)
-                spinner_thread.start()
-
+                spinner.start()
                 reply = generate_response(user_prompt)
+                spinner.stop()
 
-                spinner_active = False
-                spinner_thread.join()
-
-                print(colored("< ", "green") + reply)
-
-                # Log to history file
+                print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
                 log_to_history(user_prompt, reply)
+
             except KeyboardInterrupt:
-                print(colored("\nSession terminated by user.", "cyan"))
+                spinner.stop()
+                colored_print("\nSession terminated by user.", "cyan")
                 break
             except Exception as e:
-                print(colored(f"Error: {e}", "red"))
+                spinner.stop()
+                colored_print(f"Error: {e}", "red")
 
     except ImportError:
-        print(colored("Falling back to standard input. Install prompt_toolkit for vi-like editing.", "red"))
+        colored_print("Falling back to standard input. Install prompt_toolkit for vi-like editing.", "red")
+        
         while True:
             try:
-                user_prompt = input(colored("> ", "blue"))
+                user_prompt = input(f"{Colors.BLUE}> {Colors.RESET}")
                 if user_prompt.lower() == "exit":
-                    print(colored("Goodbye!", "cyan"))
+                    colored_print("Goodbye!", "cyan")
                     break
                 elif user_prompt.lower() == "h":
                     show_history()
                     continue
 
-                spinner_active = True
-                spinner_thread = threading.Thread(target=spinner)
-                spinner_thread.start()
-
+                spinner.start()
                 reply = generate_response(user_prompt)
+                spinner.stop()
 
-                spinner_active = False
-                spinner_thread.join()
-
-                print(colored("< ", "green") + reply)
-
-                # Log to history file
+                print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
                 log_to_history(user_prompt, reply)
+
             except KeyboardInterrupt:
-                print(colored("\nSession terminated by user.", "cyan"))
+                spinner.stop()
+                colored_print("\nSession terminated by user.", "cyan")
                 break
             except Exception as e:
-                print(colored(f"Error: {e}", "red"))
+                spinner.stop()
+                colored_print(f"Error: {e}", "red")
+
+if __name__ == "__main__":
+    main()
