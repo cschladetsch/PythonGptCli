@@ -50,13 +50,13 @@ except Exception as e:
     print(f"{Colors.RED}Error initializing OpenAI client: {str(e)}{Colors.RESET}")
     sys.exit(1)
 
-def generate_response(prompt):
+def generate_response(prompt, system_prompt="You are a helpful assistant."):
     """Generates a response using OpenAI's GPT-4 model."""
     try:
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
             ]
         )
@@ -155,6 +155,7 @@ class InteractiveMode:
             'prompt': '#0000ff',
         })
         self.bindings = KeyBindings()
+        self.system_prompt = "You are a helpful assistant."
 
     def handle_exit(self):
         colored_print("Goodbye!", "cyan")
@@ -171,6 +172,14 @@ class InteractiveMode:
                     colored_print("Invalid number of queries to show.", "red")
             except ValueError:
                 colored_print("Invalid command format. Use 'h' or 'h -N'.", "red")
+
+    def handle_system_prompt(self, user_prompt):
+        try:
+            new_prompt = user_prompt.split("set_system ", 1)[1].strip()
+            self.system_prompt = new_prompt
+            colored_print(f"System prompt updated to: {new_prompt}", "green")
+        except IndexError:
+            colored_print("Invalid command format. Use 'set_system <new system prompt>'.", "red")
 
     def handle_nth_query(self, user_prompt):
         try:
@@ -198,6 +207,9 @@ class InteractiveMode:
         elif user_prompt.startswith("h"):
             self.handle_history(user_prompt)
             return True
+        elif user_prompt.startswith("set_system"):
+            self.handle_system_prompt(user_prompt)
+            return True
         elif user_prompt.startswith("!"):
             edited_prompt = self.handle_nth_query(user_prompt)
             if edited_prompt:
@@ -206,7 +218,7 @@ class InteractiveMode:
                 return True
 
         self.spinner.start()
-        reply = generate_response(user_prompt)
+        reply = generate_response(user_prompt, self.system_prompt)
         self.spinner.stop()
 
         print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
