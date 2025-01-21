@@ -10,6 +10,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.styles import Style
+import pyperclip
 
 # File paths for history log and persistent items
 HISTORY_FILE = os.path.expanduser("~/query_history.log")
@@ -66,12 +67,14 @@ def generate_response(prompt, system_prompt="You are a helpful assistant."):
 
 def show_help():
     help_text = """
-    - help: Displays this help message.
+    - help or ?: Displays this help message.
+    - h: Displays the query-response history.
     - quit: Exits the application.
     - list: Lists all available items.
     - add <value>: Adds a new item with an auto-incremented index.
     - remove <index>: Removes an item by its index.
     - up <file_path>: Uploads a file and sends its content to GPT for processing.
+    - dl <file_path>: Saves clipboard content to <file_path>, backing up the previous file as <file_path>.last.
     """
     print(help_text)
 
@@ -136,7 +139,9 @@ def upload_file_to_gpt(file_path):
     """
     Reads the file content and sends it to the GPT session.
     """
+    spinner = Spinner()
     try:
+        spinner.start()
         with open(file_path, "r") as file:
             file_content = file.read()
 
@@ -148,11 +153,35 @@ def upload_file_to_gpt(file_path):
 
         # Generate response
         response = generate_response(upload_prompt)
+        spinner.stop()
         colored_print(response, "green")
         log_to_history(f"File uploaded: {file_path}", response)
 
     except Exception as e:
+        spinner.stop()
         colored_print(f"Error uploading file: {str(e)}", "red")
+
+def save_clipboard_to_file(file_path):
+    """Saves the clipboard content to the specified file, creating a backup of the previous file."""
+    try:
+        content = pyperclip.paste()
+        if not content:
+            colored_print("Clipboard is empty.", "yellow")
+            return
+
+        # Backup the existing file
+        if os.path.exists(file_path):
+            backup_path = f"{file_path}.last"
+            os.rename(file_path, backup_path)
+            colored_print(f"Backup created: {backup_path}", "cyan")
+
+        # Save clipboard content to the file
+        with open(file_path, "w") as file:
+            file.write(content)
+        colored_print(f"Clipboard content saved to {file_path}", "green")
+
+    except Exception as e:
+        colored_print(f"Error saving clipboard content: {str(e)}", "red")
 
 class InteractiveMode:
     def __init__(self):
@@ -221,6 +250,16 @@ class InteractiveMode:
         except (IndexError, ValueError):
             colored_print("Invalid command. Use 'remove <index>'.", "red")
 
+    def handle_download(self, user_prompt):
+        try:
+            file_path = user_prompt.split("dl ", 1)[1].strip()
+            save_clipboard_to_file(file_path)
+        except IndexError:
+            colored_print("Invalid command. Use 'dl <file_path>'.", "red")
+
+    def handle_history(self):
+        show_history()
+
     def process_input(self, user_prompt):
         if user_prompt.lower() == "exit":
             self.handle_exit()
@@ -234,11 +273,17 @@ class InteractiveMode:
         elif user_prompt == "list":
             self.handle_list()
             return True
+        elif user_prompt == "h":
+            self.handle_history()
+            return True
         elif user_prompt.startswith("add "):
             self.handle_add(user_prompt)
             return True
         elif user_prompt.startswith("remove "):
             self.handle_remove(user_prompt)
+            return True
+        elif user_prompt.startswith("dl "):
+            self.handle_download(user_prompt)
             return True
         else:
             # Handle conversational queries
@@ -271,8 +316,15 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         # Join all arguments into a single query
         query = " ".join(sys.argv[1:])
-        reply = generate_response(query)
-        print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
+        spinner = Spinner()
+        try:
+            spinner.start()
+            reply = generate_response(query)
+            spinner.stop()
+            print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
+        except Exception as e:
+            spinner.stop()
+            colored_print(f"Error: {str(e)}", "red")
     else:
         interactive = InteractiveMode()
         interactive.run()
