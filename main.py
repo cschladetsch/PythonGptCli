@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 import threading
 import time
 from datetime import datetime, timezone
@@ -10,8 +11,9 @@ from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.styles import Style
 
-# File path for history log
+# File paths for history log and persistent items
 HISTORY_FILE = os.path.expanduser("~/query_history.log")
+ITEMS_FILE = os.path.expanduser("~/.ask_items.json")
 
 # ANSI color codes
 class Colors:
@@ -67,11 +69,10 @@ def show_help():
     - help: Displays this help message.
     - quit: Exits the application.
     - list: Lists all available items.
-    - add <item>: Adds a new item.
-    - remove <item>: Removes an item.
+    - add <value>: Adds a new item with an auto-incremented index.
+    - remove <index>: Removes an item by its index.
     """
     print(help_text)
-
 
 class Spinner:
     def __init__(self):
@@ -160,6 +161,19 @@ class InteractiveMode:
         })
         self.bindings = KeyBindings()
         self.system_prompt = "You are a helpful assistant."
+        self.items = self.load_items()
+
+    def load_items(self):
+        """Load items from the persistent storage file."""
+        if os.path.exists(ITEMS_FILE):
+            with open(ITEMS_FILE, "r") as f:
+                return json.load(f)
+        return []
+
+    def save_items(self):
+        """Save the current items to the persistent storage file."""
+        with open(ITEMS_FILE, "w") as f:
+            json.dump(self.items, f, indent=4)
 
     def handle_exit(self):
         colored_print("Goodbye!", "cyan")
@@ -174,6 +188,38 @@ class InteractiveMode:
         except IndexError:
             colored_print("Invalid command. Use 'up <file_path>'.", "red")
 
+    def handle_list(self):
+        if self.items:
+            colored_print("Items:", "cyan")
+            for index, value in enumerate(self.items):
+                colored_print(f"{index}: {value}", "green")
+        else:
+            colored_print("No items found.", "yellow")
+
+    def handle_add(self, user_prompt):
+        try:
+            value = user_prompt.split("add ", 1)[1].strip()
+            if value:
+                self.items.append(value)
+                self.save_items()
+                colored_print(f"Added: {len(self.items) - 1} -> {value}", "green")
+            else:
+                colored_print("No value provided. Use 'add <value>'.", "red")
+        except IndexError:
+            colored_print("Invalid command. Use 'add <value>'.", "red")
+
+    def handle_remove(self, user_prompt):
+        try:
+            index = int(user_prompt.split("remove ", 1)[1].strip())
+            if 0 <= index < len(self.items):
+                removed_item = self.items.pop(index)
+                self.save_items()
+                colored_print(f"Removed: {index} -> {removed_item}", "green")
+            else:
+                colored_print(f"Invalid index: {index}", "red")
+        except (IndexError, ValueError):
+            colored_print("Invalid command. Use 'remove <index>'.", "red")
+
     def process_input(self, user_prompt):
         if user_prompt.lower() == "exit":
             self.handle_exit()
@@ -181,11 +227,17 @@ class InteractiveMode:
         elif user_prompt.startswith("up "):
             self.handle_file_upload(user_prompt)
             return True
-        elif user_prompt == "h":
-            show_history()
-            return True
         elif user_prompt == "help":
             show_help()
+            return True
+        elif user_prompt == "list":
+            self.handle_list()
+            return True
+        elif user_prompt.startswith("add "):
+            self.handle_add(user_prompt)
+            return True
+        elif user_prompt.startswith("remove "):
+            self.handle_remove(user_prompt)
             return True
 
         self.spinner.start()
