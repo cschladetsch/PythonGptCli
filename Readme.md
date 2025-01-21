@@ -21,8 +21,8 @@ A Python-based tool to interact with OpenAI's GPT-4 model via command-line or in
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/cschladetsch/GptCodeExchange.git
-   cd GptCodeExchange
+   $ git clone https://github.com/cschladetsch/PythonGptRepl.git
+   $ cd PythonGptRepl
    ```
 
 2. Install dependencies:
@@ -37,12 +37,14 @@ A Python-based tool to interact with OpenAI's GPT-4 model via command-line or in
 ### Set up the OpenAI API key:
 - Add your OpenAI API key as an environment variable:
   ```bash
-  export GPT_TOKEN="your_openai_api_key"
+  export OPENAI_GPT_TOKEN="your_openai_api_key"
   ```
 
 OR
 
 - Place the key in a file named `token` in the same directory as `main.py`.
+
+The program first searches for the value in the environment variables, *then* looks for a file called `~/.openai_gpt_token`.
 
 ---
 

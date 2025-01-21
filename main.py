@@ -7,7 +7,7 @@ import time
 from openai import OpenAI
 from termcolor import colored
 
-def read_token(file_path="token"):
+def read_token(file_path="~/.openai_gpt_token"):
     """
     Reads the API key from a file if it exists; otherwise, retrieves it from an environment variable.
     """
