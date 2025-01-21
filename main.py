@@ -1,11 +1,9 @@
 import sys
 import os
 import threading
-import itertools
 import time
 from datetime import datetime, timezone
 from openai import OpenAI
-import readline
 from prompt_toolkit import prompt
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.enums import EditingMode
@@ -54,7 +52,7 @@ def generate_response(prompt, system_prompt="You are a helpful assistant."):
     """Generates a response using OpenAI's GPT-4 model."""
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -63,6 +61,17 @@ def generate_response(prompt, system_prompt="You are a helpful assistant."):
         return response.choices[0].message.content
     except Exception as e:
         return f"Error generating response: {str(e)}"
+
+def show_help():
+    help_text = """
+    - help: Displays this help message.
+    - quit: Exits the application.
+    - list: Lists all available items.
+    - add <item>: Adds a new item.
+    - remove <item>: Removes an item.
+    """
+    print(help_text)
+
 
 class Spinner:
     def __init__(self):
@@ -121,32 +130,27 @@ def show_history(last_n=None):
     else:
         colored_print("No history found.", "yellow")
 
-def get_nth_history_line(n):
-    """Retrieve the Nth query from the history file."""
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r") as history:
-            queries = [line.split("QUERY: ", 1)[-1].strip()
-                       for line in history if "QUERY: " in line]
-            if 1 <= n <= len(queries):
-                return queries[n - 1]
-            else:
-                return None
-    return None
-
-def process_single_query(query):
-    """Process a single query and exit."""
-    spinner = Spinner()
+def upload_file_to_gpt(file_path):
+    """
+    Reads the file content and sends it to the GPT session.
+    """
     try:
-        spinner.start()
-        reply = generate_response(query)
-        spinner.stop()
-        print(reply)
-        log_to_history(query, reply)
+        with open(file_path, "r") as file:
+            file_content = file.read()
+
+        # Add the file content to the GPT prompt
+        upload_prompt = (
+            f"Uploaded file: {os.path.basename(file_path)}\n\n"
+            f"File Content:\n{file_content[:2000]}..."  # Truncate if needed
+        )
+
+        # Generate response
+        response = generate_response(upload_prompt)
+        colored_print(response, "green")
+        log_to_history(f"File uploaded: {file_path}", response)
+
     except Exception as e:
-        spinner.stop()
-        print(f"{Colors.RED}Error: {str(e)}{Colors.RESET}")
-    finally:
-        spinner.stop()
+        colored_print(f"Error uploading file: {str(e)}", "red")
 
 class InteractiveMode:
     def __init__(self):
@@ -160,62 +164,26 @@ class InteractiveMode:
     def handle_exit(self):
         colored_print("Goodbye!", "cyan")
 
-    def handle_history(self, user_prompt):
-        if user_prompt.strip() == "h":
-            show_history()
-        elif user_prompt.startswith("h -"):
-            try:
-                n = int(user_prompt.split("-", 1)[1])
-                if n > 0:
-                    show_history(last_n=n)
-                else:
-                    colored_print("Invalid number of queries to show.", "red")
-            except ValueError:
-                colored_print("Invalid command format. Use 'h' or 'h -N'.", "red")
-
-    def handle_system_prompt(self, user_prompt):
+    def handle_file_upload(self, user_prompt):
         try:
-            new_prompt = user_prompt.split("set_system ", 1)[1].strip()
-            self.system_prompt = new_prompt
-            colored_print(f"System prompt updated to: {new_prompt}", "green")
-        except IndexError:
-            colored_print("Invalid command format. Use 'set_system <new system prompt>'.", "red")
-
-    def handle_nth_query(self, user_prompt):
-        try:
-            n = int(user_prompt[1:])
-            nth_query = get_nth_history_line(n)
-            if nth_query:
-                colored_print(f"Editing Query {n}: {nth_query}", "yellow")
-                return prompt(
-                    f"{Colors.BLUE}[Edit Query] > {Colors.RESET}",
-                    default=nth_query,
-                    editing_mode=EditingMode.VI,
-                    style=self.style
-                )
+            file_path = user_prompt.split("up ", 1)[1].strip()
+            if os.path.exists(file_path):
+                upload_file_to_gpt(file_path)
             else:
-                colored_print(f"No query at index {n}.", "red")
-                return None
-        except ValueError:
-            colored_print("Invalid command. Use !N where N is a number.", "red")
-            return None
+                colored_print("File not found. Please check the path.", "red")
+        except IndexError:
+            colored_print("Invalid command. Use 'up <file_path>'.", "red")
 
     def process_input(self, user_prompt):
         if user_prompt.lower() == "exit":
             self.handle_exit()
             return False
-        elif user_prompt.startswith("h"):
-            self.handle_history(user_prompt)
+        elif user_prompt.startswith("up "):
+            self.handle_file_upload(user_prompt)
             return True
-        elif user_prompt.startswith("set_system"):
-            self.handle_system_prompt(user_prompt)
+        elif user_prompt == "help":
+            show_help()
             return True
-        elif user_prompt.startswith("!"):
-            edited_prompt = self.handle_nth_query(user_prompt)
-            if edited_prompt:
-                user_prompt = edited_prompt
-            else:
-                return True
 
         self.spinner.start()
         reply = generate_response(user_prompt, self.system_prompt)
@@ -246,7 +214,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         # Join all arguments into a single query
         query = " ".join(sys.argv[1:])
-        process_single_query(query)
+        upload_file_to_gpt(query)
     else:
         interactive = InteractiveMode()
         interactive.run()
