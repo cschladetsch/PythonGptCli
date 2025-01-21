@@ -91,6 +91,14 @@ termcolor
 prompt_toolkit
 ```
 
+## TODO
+
+* Enable upload and download of files - source files and zips.
+* Provide ability to set precursor and motivation text.
+* Support images.
+
+
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for more details.
+
