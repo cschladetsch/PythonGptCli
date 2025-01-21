@@ -103,7 +103,7 @@ def log_to_history(prompt, response):
         history.write(f"[{timestamp}] RESPONSE: {response}\n\n")
 
 def show_history(last_n=None):
-    """Displays query-response history from the log file with colored timestamps, queries, and responses."""
+    """Displays query-response history from the log file without timestamps."""
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r") as history:
             entries = history.read().strip().split("\n\n")
@@ -112,10 +112,10 @@ def show_history(last_n=None):
             for entry in entries:
                 lines = entry.strip().split("\n")
                 for line in lines:
-                    if line.startswith("[") and "QUERY:" in line:
+                    if "QUERY:" in line:
                         query = line.split("QUERY:")[1].strip()
                         colored_print(f"QUERY: {query}", "cyan")
-                    elif line.startswith("[") and "RESPONSE:" in line:
+                    elif "RESPONSE:" in line:
                         response = line.split("RESPONSE:")[1].strip()
                         colored_print(f"RESPONSE: {response}", "green")
     else:
