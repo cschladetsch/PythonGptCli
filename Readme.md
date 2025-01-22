@@ -1,4 +1,4 @@
-# GPT Command-Line Assistant
+# Python GPT Command-Line Assistant
 
 This script provides a command-line assistant that interacts with OpenAI's GPT-4 to handle various tasks such as managing a list of items, uploading files, and engaging in conversational queries.
 
