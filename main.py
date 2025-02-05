@@ -48,7 +48,7 @@ try:
     api_key = read_token()
     client = OpenAI(api_key=api_key)
 except Exception as e:
-    print(f"{Colors.RED}Error initializing OpenAI client: {str(e)}{Colors.RESET}")
+    print(f"{Colors.RED}Error initializing OpenAI client: Unable to load API key. Please check your configuration.{Colors.RESET}")
     sys.exit(1)
 
 def generate_response(prompt, system_prompt="You are a helpful assistant."):
@@ -63,7 +63,7 @@ def generate_response(prompt, system_prompt="You are a helpful assistant."):
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"Error generating response: {str(e)}"
+        return "An error occurred while generating a response. Please try again later."
 
 def show_help():
     help_text = """
@@ -159,7 +159,7 @@ def upload_file_to_gpt(file_path):
 
     except Exception as e:
         spinner.stop()
-        colored_print(f"Error uploading file: {str(e)}", "red")
+        colored_print("An error occurred while uploading the file. Please ensure the file exists and try again.", "red")
 
 def save_clipboard_to_file(file_path):
     """Saves the clipboard content to the specified file, creating a backup of the previous file."""
@@ -181,7 +181,7 @@ def save_clipboard_to_file(file_path):
         colored_print(f"Clipboard content saved to {file_path}", "green")
 
     except Exception as e:
-        colored_print(f"Error saving clipboard content: {str(e)}", "red")
+        colored_print("An error occurred while saving clipboard content. Please try again.", "red")
 
 class InteractiveMode:
     def __init__(self):
@@ -192,6 +192,24 @@ class InteractiveMode:
         self.bindings = KeyBindings()
         self.system_prompt = "You are a helpful assistant."
         self.items = self.load_items()
+        self.history = []  # Stores user input history
+        self.history_index = -1  # Tracks position in history
+
+        # Add key bindings for Up/Down arrows
+        @self.bindings.add('up')
+        def _(event):
+            if self.history and self.history_index > 0:
+                self.history_index -= 1
+                event.app.current_buffer.set_text(self.history[self.history_index])
+
+        @self.bindings.add('down')
+        def _(event):
+            if self.history and self.history_index < len(self.history) - 1:
+                self.history_index += 1
+                event.app.current_buffer.set_text(self.history[self.history_index])
+            elif self.history_index == len(self.history) - 1:
+                self.history_index += 1
+                event.app.current_buffer.set_text("")
 
     def load_items(self):
         """Load items from the persistent storage file."""
@@ -261,6 +279,10 @@ class InteractiveMode:
         show_history()
 
     def process_input(self, user_prompt):
+        if user_prompt.strip():
+            self.history.append(user_prompt)
+            self.history_index = len(self.history)
+
         if user_prompt.lower() == "exit":
             self.handle_exit()
             return False
@@ -288,11 +310,14 @@ class InteractiveMode:
         else:
             # Handle conversational queries
             self.spinner.start()
-            reply = generate_response(user_prompt, self.system_prompt)
-            self.spinner.stop()
-
-            print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
-            log_to_history(user_prompt, reply)
+            try:
+                reply = generate_response(user_prompt, self.system_prompt)
+                print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
+                log_to_history(user_prompt, reply)
+            except Exception:
+                colored_print("An error occurred while processing your query. Please try again.", "red")
+            finally:
+                self.spinner.stop()
             return True
 
     def run(self):
@@ -301,7 +326,8 @@ class InteractiveMode:
                 user_prompt = prompt(
                     ANSI(Colors.BLUE + "> " + Colors.RESET),
                     editing_mode=EditingMode.VI,
-                    style=self.style
+                    style=self.style,
+                    key_bindings=self.bindings
                 )
                 if not self.process_input(user_prompt):
                     break
@@ -310,7 +336,7 @@ class InteractiveMode:
             colored_print("\nSession terminated by user.", "cyan")
         except Exception as e:
             self.spinner.stop()
-            colored_print(f"Error: {e}", "red")
+            colored_print("An unexpected error occurred. Please try restarting the application.", "red")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -322,9 +348,9 @@ if __name__ == "__main__":
             reply = generate_response(query)
             spinner.stop()
             print(f"{Colors.GREEN}< {Colors.RESET}{reply}")
-        except Exception as e:
+        except Exception:
             spinner.stop()
-            colored_print(f"Error: {str(e)}", "red")
+            colored_print("An error occurred while processing your request. Please try again.", "red")
     else:
         interactive = InteractiveMode()
         interactive.run()
